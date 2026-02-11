@@ -3,19 +3,25 @@ import threading
 import json
 
 clients = []
+usernames = []
 
 file_lock = threading.Lock()
 
-def broadcast(message, sender):
-    for client in clients:
-        if client != sender:
-            try:
-                client.send(message)
-            except:
-                client.close()
-                clients.remove(client)
+def broadcast(message, sender=None):
+        for client in list(clients):
+            if client != sender:
+                try:
+                    client.send(message)
+                except:
+                    if client in clients:
+                        clients.remove(client)
+                    client.close()
 
 def chat_messages(connect, address):
+    global usernames
+    checked_username = False
+    current_username = None
+    print_error = False
     while True:
         try:
             recv_data = connect.recv(1024)
@@ -30,25 +36,84 @@ def chat_messages(connect, address):
             message = data["message"]
             color = "\033[92m"
 
-            broadcast_data = {
-                "username": username,
-                "message": message,
-                "color": '\033[92m',
-            }
+            if username == "SERVER":
+                connect.send(json.dumps({
+                    "username": "SERVER",
+                    "message": "Username cannot be 'SERVER'. Please choose another one.",
+                    "color": '\033[91m',
+                }).encode("utf-8"))
+                break
 
-            broadcast(json.dumps(broadcast_data).encode("utf-8"), connect)
+            if not checked_username:
+                if username in usernames:
+                    connect.send(json.dumps({
+                        "username": "SERVER",
+                        "message": "Username already taken. Please choose another one.",
+                        "color": '\033[91m',
+                    }).encode("utf-8"))
+                    break
+                else:
+                    with file_lock:
+                        usernames.append(username)
+                    current_username = username
+                    checked_username = True
             
-            print(f"<{color}{username}\033[0m> {message}")
+            if message != None and message != "":
+                broadcast_data = json.dumps({
+                    "username": username,
+                    "message": message,
+                    "color": '\033[92m',
+                }).encode("utf-8")
 
-            save(message, username)
+                broadcast(broadcast_data, connect)
+            
+                print(f"<{color}{username}\033[0m> {message}")
+
+                save(message, username)
         except ConnectionAbortedError:
-            print(f"{address} has disconnected")
             break
         except Exception as e:
-            print(f"Error: {e}")
+            connect.send(json.dumps({
+                "username": "SERVER",
+                "message": f"Error: {e}",
+                "color": '\033[91m',
+            }).encode("utf-8"))
+            print_error = True
+            if current_username != None:
+                print(f"\n{current_username} has disconnected with error: {e}")
+            else:
+                print(f"\n{address} has disconnected with error: {e}")
             break
-    save("\n---[CHATTING STOPPED]---\n\n")
-    print("\nChatting stopped.")
+    connect.close()
+
+    if connect in clients:
+        clients.remove(connect)
+
+    if current_username == None:
+        print(f"{address} has left the chat.")
+        
+        if checked_username:
+            broadcast(json.dumps({
+                "username": "SERVER",
+                "message": f"{address} has left the chat.",
+                "color": '\033[91m',
+            }).encode("utf-8"), "server")
+
+    else:
+        if current_username in usernames:
+            with file_lock:
+                usernames.remove(current_username)
+
+        save(f"{current_username} has left the chat.")
+
+        if not print_error:
+            print(f"{current_username} has left the chat.")
+
+        broadcast(json.dumps({
+            "username": "SERVER",
+            "message": f"{current_username} has left the chat.",
+            "color": '\033[91m',
+        }).encode("utf-8"), "server")
 
 def send_message(username):
     while True:
@@ -82,6 +147,8 @@ def save(message, sender=None):
                 h.flush()
 
 def server_mode(username):
+    usernames.append(username)
+
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     port = int(input("Enter server port: "))
@@ -98,9 +165,17 @@ def server_mode(username):
             connect, address = server.accept()
             clients.append(connect)
             print(f"{address} has connected.")
+
+            broadcast(json.dumps({
+                "username": "SERVER",
+                "message": f"{address} has connected.",
+                "color": '\033[92m',
+            }).encode("utf-8"), "server")
     
             threading.Thread(target=chat_messages, args=(connect, address), daemon=True).start()
         except Exception as e:
             print(f"\nError: {e}")
             break
+    clients = []
+    usernames = [username]
     server.close()

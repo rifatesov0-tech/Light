@@ -63,9 +63,16 @@ def client_mode(username):
         port = int(input("Enter server port: "))
     except ValueError:
         print("Invalid port number.")
-        exit()
+        return
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    initial_data = {
+        "username": username,
+        "message": ""
+    }
+
+    client.send(json.dumps(initial_data).encode("utf-8"))
     
     try:
         client.connect((address, port))
@@ -83,3 +90,4 @@ def client_mode(username):
     server_msg.start()
 
     client_msg.join()
+    client.close()
