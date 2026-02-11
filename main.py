@@ -1,4 +1,4 @@
-version = "0.2"
+version = "0.3"
 versionType = "Alpha"
 
 print(f"Light {version} {versionType} - Created by wisted13\n")
@@ -10,11 +10,10 @@ try:
     with open("username.txt", "r") as f:
         username = f.read()
 except FileNotFoundError:
-    print("File not found, creating...")
     username = None
 except Exception as e:
-    print(f"Error: {e}")
-    exit()
+    print(f"Error: {e}\n")
+    username = input("Enter your username: ")
     
 if username == None:
     username = input("Enter your username: ")
@@ -22,6 +21,8 @@ if username == None:
         f.write(username)
 else:
     pass
+
+print(f"Your username: {username}")
 
 try:
     mode = int(input("\nEnter program mode (1 for Server, 2 for Client): "))
@@ -42,7 +43,7 @@ try:
         print("\nUnknown mode.")
         exit()
 except ImportError:
-    print("Error loading modules.")
+    print("Error loading module.")
     exit()
 except ValueError:
     print("\nInvalid input. Please enter a number.")
