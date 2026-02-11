@@ -37,7 +37,7 @@ print(f"Your username: {username}")
 try:
     while True:
         try:
-            mode = int(input("\nEnter program mode (0, for exit,1 for Server, 2 for Client): "))
+            mode = int(input("\nEnter program mode (0, for exit, 1 for Server, 2 for Client): "))
     
             if mode == 1:
                 server_mode(username)

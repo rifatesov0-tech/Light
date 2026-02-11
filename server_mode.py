@@ -8,8 +8,17 @@ usernames = []
 file_lock = threading.Lock()
 
 def broadcast(message, sender=None):
-        for client in list(clients):
-            if client != sender:
+        if sender != None:
+            for client in list(clients):
+                if client != sender:
+                    try:
+                        client.send(message)
+                    except:
+                        if client in clients:
+                            clients.remove(client)
+                        client.close()
+        else:
+            for client in list(clients):
                 try:
                     client.send(message)
                 except:
@@ -92,12 +101,11 @@ def chat_messages(connect, address):
     if current_username == None:
         print(f"{address} has left the chat.")
         
-        if checked_username:
-            broadcast(json.dumps({
-                "username": "SERVER",
-                "message": f"{address} has left the chat.",
-                "color": '\033[91m',
-            }).encode("utf-8"), "server")
+        broadcast(json.dumps({
+            "username": "SERVER",
+            "message": f"{address} has left the chat.",
+            "color": '\033[91m',
+        }).encode("utf-8"))
 
     else:
         if current_username in usernames:
@@ -113,7 +121,7 @@ def chat_messages(connect, address):
             "username": "SERVER",
             "message": f"{current_username} has left the chat.",
             "color": '\033[91m',
-        }).encode("utf-8"), "server")
+        }).encode("utf-8"))
 
 def send_message(username):
     while True:
@@ -128,7 +136,7 @@ def send_message(username):
             "color": '\033[31m',
         }
 
-        broadcast((json.dumps(data).encode("utf-8")), "server")
+        broadcast((json.dumps(data).encode("utf-8")))
 
         save(message, username)
     save("\n---[CHATTING STOPPED]---\n\n")
@@ -147,6 +155,7 @@ def save(message, sender=None):
                 h.flush()
 
 def server_mode(username):
+    global usernames, clients
     usernames.append(username)
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -170,12 +179,13 @@ def server_mode(username):
                 "username": "SERVER",
                 "message": f"{address} has connected.",
                 "color": '\033[92m',
-            }).encode("utf-8"), "server")
+            }).encode("utf-8"))
     
             threading.Thread(target=chat_messages, args=(connect, address), daemon=True).start()
         except Exception as e:
             print(f"\nError: {e}")
             break
-    clients = []
-    usernames = [username]
+    with file_lock:
+        clients.clear()
+        usernames.clear()
     server.close()

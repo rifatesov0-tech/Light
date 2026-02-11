@@ -15,9 +15,12 @@ def chat_messages(client, address):
 
             data = json.loads(recv_data.decode("utf-8"))
 
-            print(f"<{data['color']}{data['username']}\033[0m> {data['message']}")
-
-            save(data["message"], data["username"])
+            if data["username"] == "SERVER":
+                print(data.get("color", "\033[0m") + data["message"] + "\033[0m")
+                save(data["message"])
+            else:
+                print(f"<{data.get('color', '\033[0m')}{data['username']}\033[0m> {data['message']}")
+                save(data["message"], data["username"])
         except ConnectionAbortedError:
             print(f"Connection to {address} closed.")
             break
@@ -71,15 +74,14 @@ def client_mode(username):
         "username": username,
         "message": ""
     }
-
-    client.send(json.dumps(initial_data).encode("utf-8"))
     
     try:
         client.connect((address, port))
         print(f"Connected to {address}.")
+        client.send(json.dumps(initial_data).encode("utf-8"))
     except ConnectionRefusedError:
         print(f"Connection to {address} refused.")
-        exit()
+        return
     except Exception as e:
         print(f"Error: {e}")
     
